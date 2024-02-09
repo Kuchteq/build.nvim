@@ -1,0 +1,45 @@
+#!/usr/bin/env zsh
+
+# Unfortunately this is the best we got with zshell 
+# and its lack of native --init-file flag like bash
+# From https://github.com/romkatv/zshi
+emulate -L zsh -o no_unset
+
+() {
+  local tmp
+  local TMPDIR="$XDG_RUNTIME_DIR"
+  {
+    tmp=$(mktemp -d ${TMPDIR:-/tmp}/zsh.XXXXXXXXXX) || return
+    local rc
+    for rc in .zprofile .zshrc; do
+      >$tmp/$rc <<<'{
+  ZDOTDIR="$_zshi_zdotdir"
+  if [[ -f "$ZDOTDIR/'$rc'" && -r "$ZDOTDIR/'$rc'" ]]; then
+    "builtin" "source" "--" "$ZDOTDIR/'$rc'"
+  fi
+} always {
+  TRAPUSR2(){ echo -e "\x1b[G";
+          make $(cat $XDG_RUNTIME_DIR/makeshelltarget 2>/dev/null); 
+          zle reset-prompt 2>/dev/null; }
+
+  echo $$ > "$XDG_RUNTIME_DIR/makeshell"
+  PS1="%{$fg[red]%}[%{$fg[red]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
+  if [[ -o "no_rcs" ||
+        -o "login" && "'$rc'" == ".zlogin" ||
+        -o "no_login" && "'$rc'" == ".zshrc" ||
+        -o "no_login" && -o "no_interactive" && "'$rc'" == ".zshenv" ]]; then
+    "builtin" "unset" "_zshi_rcs" "_zshi_zdotdir"
+    "builtin" "command" "rm" "-rf" "--" '${(q)tmp}'
+  else
+    _zshi_zdotdir=${ZDOTDIR:-~}
+    ZDOTDIR='${(q)tmp}'
+  fi
+
+}' || return
+    done
+    _zshi_zdotdir=${ZDOTDIR:-~} ZDOTDIR=$tmp exec zsh "$@"
+  } always {
+    [[ -e $tmp ]] && rm -rf -- $tmp
+  }
+} "$@"
+
