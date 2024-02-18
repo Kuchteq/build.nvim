@@ -150,9 +150,18 @@ local make_output = {
 }
 
 local function setup()
-        vim.keymap.set({ "n" }, "<leader>m", function() make_output:run_make() end, { noremap = true, silent = true })
-        vim.keymap.set({ "n" }, "<leader>M", function() make_output:toggle() end, { noremap = true, silent = true })
-        vim.keymap.set({ "n" }, "<leader>M", function() make_output:toggle() end, { noremap = true, silent = true })
+        local targets_filename = vim.fn.stdpath('data') .. "/makeshelltargets"
+        local file = io.open(targets_filename, "r")
+        if file then
+            io.close(file)
+        else
+            file = io.open(targets_filename, "w")
+            if file then
+                io.close(file)
+            else
+            end
+        end
 end
 
-return { setup = setup };
+local run_make = function() make_output:run_make() end;
+return { setup = setup, run_make = run_make };
