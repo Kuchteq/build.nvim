@@ -3,7 +3,29 @@
 # Unfortunately this is the best we got with zshell 
 # and its lack of native --init-file flag like bash
 # From https://github.com/romkatv/zshi
-emulate -L zsh -o no_unset
+emulate -L zsh 
+
+# makeshelltarget file is read using cat to have the default make target read
+
+
+trapfunc='
+TRAPUSR2()
+{ 
+        if [ -f Makefile ]; then
+                echo -e "\x1b[G";
+                make #$(cat $XDG_RUNTIME_DIR/makeshelltarget 2>/dev/null); 
+        else
+                echo "No Makefile found, running default compile script for ${t##*.} type of file"
+                "$scriptroot/compiler" "$t"
+        fi
+        zle reset-prompt 2>/dev/null; 
+        [ $ZSH_FULLY_LOADED ] || lazy-load >/dev/null 2>/dev/null
+        export ZSH_FULLY_LOADED=true
+}'
+
+export scriptroot="$(dirname "$0")" 
+export t="$1"
+export ZSH_NO_LAZY_LOAD=true
 
 () {
   local tmp
@@ -11,6 +33,7 @@ emulate -L zsh -o no_unset
   {
     tmp=$(mktemp -d ${TMPDIR:-/tmp}/zsh.XXXXXXXXXX) || return
     local rc
+
     for rc in .zprofile .zshrc; do
       >$tmp/$rc <<<'{
   ZDOTDIR="$_zshi_zdotdir"
@@ -18,10 +41,7 @@ emulate -L zsh -o no_unset
     "builtin" "source" "--" "$ZDOTDIR/'$rc'"
   fi
 } always {
-  TRAPUSR2(){ echo -e "\x1b[G";
-          make $(cat $XDG_RUNTIME_DIR/makeshelltarget 2>/dev/null); 
-          zle reset-prompt 2>/dev/null; }
-
+  '"$trapfunc"'
   echo $$ > "$XDG_RUNTIME_DIR/makeshell"
   PS1="%{$fg[red]%}[%{$fg[red]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
   if [[ -o "no_rcs" ||
@@ -37,7 +57,7 @@ emulate -L zsh -o no_unset
 
 }' || return
     done
-    _zshi_zdotdir=${ZDOTDIR:-~} ZDOTDIR=$tmp exec zsh "$@"
+    _zshi_zdotdir=${ZDOTDIR:-~} ZDOTDIR=$tmp exec zsh 
   } always {
     [[ -e $tmp ]] && rm -rf -- $tmp
   }

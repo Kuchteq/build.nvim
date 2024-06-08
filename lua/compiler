@@ -1,0 +1,33 @@
+#!/bin/sh
+
+autorun=true
+file=$(readlink -f "$1")
+dir=${file%/*}
+base="${file%.*}"
+ext="${file##*.}"
+
+case "$ext" in
+	c) 
+                cc "$file" -o "$base" 
+                echo -e "\x1b[1;33mOut:\x1b[0m $(basename $base)" 
+                "./$base"
+                ;;
+	go) 
+                if ! go build; then
+                        notify-send " Build failed"
+                        echo -e "\x1b[1;31m^ Error occured\x1b[0m"
+                else
+                        if [ -f "go.mod" ]; then
+                                output="$(sed -n 's/module .*\/.*\///gp' go.mod)"
+                                echo -e "\x1b[1;33mOut:\x1b[0m $output" 
+                                "./$output"
+                        fi
+                fi
+                
+                ;;
+        svelte)
+                bun run dev;;
+        *)
+                echo -e "\x1b[3;33mCan't determine the type of file. Nothing got ran.\x1b[0m"
+esac
+
